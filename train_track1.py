@@ -44,6 +44,7 @@ class NavigationEnv(gym.Env):
     def __init__(self, env_config: EnvContext) -> None:
         super().__init__()
         self.config = env_config
+        self.render_scale = env_config["render_scale"]
 
         # build action and observation space
         self.action_space = spaces.Dict(
@@ -120,8 +121,8 @@ class NavigationEnv(gym.Env):
         far = self.game.get_depth_map_size()[-1]
         depth_map = self.state.depth_map
         img = (depth_map / far * 255).astype(np.uint8)
-        h, w = img.shape
-        img = cv2.resize(img, (w * self.render_scale, h * self.render_scale))
+        h, w = [x * self.render_scale for x in img.shape]
+        img = cv2.resize(img, (w, h))
         return cv2.applyColorMap(img, cv2.COLORMAP_JET)
 
     def close(self) -> None:
@@ -140,6 +141,7 @@ class NavigationEnv(gym.Env):
 
 
 if __name__ == "__main__":
+    import os
     import argparse
     from rich.console import Console
     from functools import partial
@@ -160,14 +162,24 @@ if __name__ == "__main__":
     parser.add_argument("--dmp-height", type=int, default=42)
     parser.add_argument("--episode-timeout", type=int, default=30)
     parser.add_argument("--train-steps", type=int, default=1)
+    parser.add_argument("--render-scale", type=int, default=1)
+    parser.add_argument("--num-agents", type=int, default=1)
     args = parser.parse_args()
 
+    default_config = ppo.DEFAULT_CONFIG.copy()
+
+    frag_len = args.episode_timeout * 10
+    batch_size = args.num_workers * frag_len
     config = {
         "env": NavigationEnv,
         "env_config": vars(args),
         "num_workers": args.num_workers,
         "num_cpus_per_worker": args.num_envs_per_worker,
         "framework": "torch",
+        "record_env": os.path.join(os.path.dirname(__file__), "videos"),
+        "rollout_fragment_length": frag_len,
+        "train_batch_size": batch_size,
+        "num_sgd_iter": 1,
     }
     
     if args.trainer == "ppo":
@@ -176,6 +188,10 @@ if __name__ == "__main__":
         trainer = a3c.A3CTrainer(config)
     else:
         raise ValueError("Unknown trainer: {}".format(args.trainer))
+
+    print(trainer.config)
+
+    input("Just for a break ...")
 
     for i in range(args.train_steps):
         result = trainer.train()
