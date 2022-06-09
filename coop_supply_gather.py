@@ -243,14 +243,10 @@ if __name__ == "__main__":
         "env": CooperativeSupplyGatherEnv,
         "env_config": train_env_config,
         "framework": "torch",
-        "num_workers": 2,
+        "num_workers": 160,
         "num_gpus": 0,
         "num_cpus_per_worker": 1,
         "num_envs_per_worker": 1,
-        "evaluation_interval": 10,
-        "evaluation_duration": 10,
-        "evaluation_duration_unit": "episodes",
-        "evaluation_num_workers": 2,
     }
 
     pprint(train_config)
