@@ -100,7 +100,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
                 act.extend(self.ACTION_POOL[a_type][a_idx])
             processed_action_dict[agent_id] = act
 
-        # pprint(processed_action_dict)
+        state = self.state_all
 
         self.game.make_action_by_list(processed_action_dict)
 
@@ -110,7 +110,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
             agent_id: self._get_obs(self.state_all[agent_id])
             for agent_id in action_dict
         }
-        rewards = {agent_id: 0 for agent_id in action_dict}
+        rewards = {agent_id: 0.1*(get_distance(self.target_location,get_position(state[agent_id]))-get_distance(self.target_location,get_position(self.state_all[agent_id]))) for agent_id in action_dict}
         dones = {agent_id: False for agent_id in action_dict}
         infos = {agent_id: {} for agent_id in action_dict}
 
@@ -132,11 +132,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
         self.num_steps += 1
 
-        if dones["__all__"]:
-            in_eval = self.env_config["in_evaluation"]
-            print(
-                f"[{in_eval=}] worker={self.env_config.worker_index} step={self.num_steps}, {success_count=}"
-            )
+        
 
         return obs, rewards, dones, infos
 
@@ -159,7 +155,6 @@ class CooperativeNavigationEnv(MultiAgentEnv):
         # get initial state
         self.state_all = self.game.get_state_all()
 
-        print(f"[game_port={self.game_port}] reset")
 
         return {
             agent_id: self._get_obs(state) for agent_id, state in self.state_all.items()
@@ -183,13 +178,10 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
     def _in_start_area(self, location):
         distance = get_distance(location, self.target_location)
-        return self.trigger_range < distance <= self.start_range
+        return self.trigger_range < distance <= 5000
 
     def _sample_start_location(self):
-        if self.env_config["in_evaluation"]:
-            valid_locations = self.valid_locations
-        else:
-            valid_locations = list(filter(self._in_start_area, self.valid_locations))
+        valid_locations = list(filter(self._in_start_area, self.valid_locations))
         return random.choice(valid_locations)
 
     def _sample_target_location(self):
