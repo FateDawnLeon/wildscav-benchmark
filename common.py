@@ -1,6 +1,7 @@
 COMMON_PORT_CONFIG = {
     8: 60000,
     101: 70000,
+    "test": 80000,
 }
 
 COMMON_ACTION_CONFIG = {

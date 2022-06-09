@@ -208,11 +208,6 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
 
 if __name__ == "__main__":
-    import os
-
-    os.system("ps -ef | grep 'ray' | awk '{print $2}' | xargs kill -9")
-    os.system("ps -ef | grep 'fps.x86' | awk '{print $2}' | xargs kill -9")
-
     import ray
     from ray import tune
     from ray.rllib.agents import ppo, a3c, impala
@@ -238,6 +233,8 @@ if __name__ == "__main__":
     )
 
     base_port = COMMON_PORT_CONFIG[args.map_id]
+    if args.test:
+        base_port = COMMON_PORT_CONFIG["test"]
 
     train_env_config = COMMON_ENV_CONFIG.copy()
     train_env_config.update(
