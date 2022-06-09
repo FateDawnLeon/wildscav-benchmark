@@ -100,7 +100,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
                 act.extend(self.ACTION_POOL[a_type][a_idx])
             processed_action_dict[agent_id] = act
 
-        state = self.state.all
+        state = self.state_all
 
         self.game.make_action_by_list(processed_action_dict)
 
