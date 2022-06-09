@@ -21,6 +21,7 @@ COMMON_TRAIN_CONFIG = {
     "evaluation_duration": 100,
     "evaluation_duration_unit": "episodes",
     "evaluation_num_workers": 50,
+    "num_gpus":0,
 }
 
 COMMON_ENV_CONFIG = {
