@@ -34,3 +34,6 @@ COMMON_ENV_CONFIG = {
     "engine_dir": "/mnt/d/Codes/cog-local/fps_linux_benchmark",
     "trigger_range": 2,
 }
+
+TRAIN_START_RANGE = 50
+TRAIN_EPISODE_TIMEOUT = 30

@@ -1,5 +1,4 @@
 import random
-import cv2
 import numpy as np
 from gym import spaces
 from typing import Tuple
@@ -9,7 +8,6 @@ from inspirai_fps import ActionVariable, Game
 from inspirai_fps.gamecore import AgentState
 from inspirai_fps.utils import get_distance, get_position
 from pprint import pprint
-
 
 
 class CooperativeNavigationEnv(MultiAgentEnv):
@@ -37,7 +35,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
     def __init__(self, env_config: EnvContext) -> None:
         super().__init__()
         self.env_config = env_config
-        
+
         num_envs_per_worker = env_config["num_envs_per_worker"]
         self.game_port = (
             env_config["base_port"]
@@ -46,7 +44,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
         )
         seed = env_config["random_seed"] + self.game_port
         self.seed(seed)
-        
+
         self._agent_ids = set(range(env_config["num_agents"]))
 
         # build action and observation space
@@ -60,9 +58,9 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
         self.observation_space = spaces.Dict(
             {
-                "relative_pos": spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,)),
                 # "self_pos": spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,)),
                 # "target_pos": spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,)),
+                "relative_pos": spaces.Box(low=-np.Inf, high=np.Inf, shape=(3,)),
                 "depth_map": spaces.Box(low=0, high=far, shape=(height, width)),
             }
         )
@@ -80,7 +78,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
         for _ in range(1, env_config["num_agents"]):
             game.add_agent()
         game.init()
-        
+
         # store all game backend variables
         self.game = game
         self.valid_locations = self._get_valid_locations()
@@ -108,18 +106,21 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
         self.state_all = self.game.get_state_all()
 
-        obs = {agent_id: self._get_obs(self.state_all[agent_id]) for agent_id in action_dict}
+        obs = {
+            agent_id: self._get_obs(self.state_all[agent_id])
+            for agent_id in action_dict
+        }
         rewards = {agent_id: 0 for agent_id in action_dict}
         dones = {agent_id: False for agent_id in action_dict}
         infos = {agent_id: {} for agent_id in action_dict}
-        
+
         for agent_id in action_dict:
             agent_loc = get_position(self.state_all[agent_id])
             if get_distance(agent_loc, self.target_location) <= self.trigger_range:
                 dones[agent_id] = True
 
         success_count = sum(dones.values())
-        
+
         for agent_id in action_dict:
             if success_count > 0:
                 rewards[agent_id] = (100 / success_count) * int(dones[agent_id])
@@ -133,7 +134,9 @@ class CooperativeNavigationEnv(MultiAgentEnv):
 
         if dones["__all__"]:
             in_eval = self.env_config["in_evaluation"]
-            print(f"[{in_eval=}] worker={self.env_config.worker_index} step={self.num_steps}, {success_count=}")
+            print(
+                f"[{in_eval=}] worker={self.env_config.worker_index} step={self.num_steps}, {success_count=}"
+            )
 
         return obs, rewards, dones, infos
 
@@ -147,7 +150,7 @@ class CooperativeNavigationEnv(MultiAgentEnv):
                 start_location = self._sample_start_location()
                 self.game.set_start_location(start_location, agent_id)
 
-        self.game.set_target_location(self.target_location)  
+        self.game.set_target_location(self.target_location)
         self.game.new_episode()
 
         # reset key variables
@@ -195,18 +198,21 @@ class CooperativeNavigationEnv(MultiAgentEnv):
     def _get_valid_locations(self):
         valid_locations = self.game.get_valid_locations()["outdoor"]
         if self.env_config["map_id"] == 101:
+
             def _in_map(location):
                 x, _, z = location
                 return -100 <= x <= 100 and -100 <= z <= 100
+
             return list(filter(_in_map, valid_locations))
         return valid_locations
 
 
 if __name__ == "__main__":
     import os
+
     os.system("ps -ef | grep 'ray' | awk '{print $2}' | xargs kill -9")
     os.system("ps -ef | grep 'fps.x86' | awk '{print $2}' | xargs kill -9")
-    
+
     import ray
     from ray import tune
     from ray.rllib.agents import ppo, a3c, impala
@@ -215,40 +221,55 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--map-id", type=int, required=True, choices=[8, 101])
-    parser.add_argument("--algo", type=str, required=True, choices=["a3c", "ppo", "impala"])
+    parser.add_argument(
+        "--algo", type=str, required=True, choices=["a3c", "ppo", "impala"]
+    )
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--checkpoint", type=str, default=None)
     args = parser.parse_args()
 
-    from common import COMMON_ENV_CONFIG, COMMON_TRAIN_CONFIG, COMMON_STOP_CONFIG, COMMON_PORT_CONFIG
+    from common import (
+        COMMON_ENV_CONFIG,
+        COMMON_TRAIN_CONFIG,
+        COMMON_STOP_CONFIG,
+        COMMON_PORT_CONFIG,
+        TRAIN_START_RANGE,
+        TRAIN_EPISODE_TIMEOUT,
+    )
 
     base_port = COMMON_PORT_CONFIG[args.map_id]
 
     train_env_config = COMMON_ENV_CONFIG.copy()
-    train_env_config.update({
-        "map_id": args.map_id,
-        "base_port": base_port,
-        "start_range": 50,
-        "in_evaluation": False,
-        "episode_timeout": 10,
-    })
+    train_env_config.update(
+        {
+            "map_id": args.map_id,
+            "base_port": base_port,
+            "start_range": TRAIN_START_RANGE,
+            "episode_timeout":TRAIN_EPISODE_TIMEOUT,
+            "in_evaluation": False,
+        }
+    )
 
     eval_env_config = COMMON_ENV_CONFIG.copy()
-    eval_env_config.update({
-        "map_id": args.map_id,
-        "base_port": base_port + 1000,
-        "in_evaluation": True,
-    })
+    eval_env_config.update(
+        {
+            "map_id": args.map_id,
+            "base_port": base_port + 1000,
+            "in_evaluation": True,
+        }
+    )
 
     train_config = COMMON_TRAIN_CONFIG.copy()
-    train_config.update({
-        "env": CooperativeNavigationEnv,
-        "env_config": train_env_config,
-        "evaluation_config": {
-            "explore": True,
-            "env_config": eval_env_config,
-        },
-    })
+    train_config.update(
+        {
+            "env": CooperativeNavigationEnv,
+            "env_config": train_env_config,
+            "evaluation_config": {
+                "explore": True,
+                "env_config": eval_env_config,
+            },
+        }
+    )
 
     pprint(train_config)
 
@@ -280,5 +301,5 @@ if __name__ == "__main__":
         checkpoint_at_end=True,
     )
     pprint(analysis.dataframe())
-    
+
     ray.shutdown()
